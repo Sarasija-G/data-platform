@@ -1,0 +1,240 @@
+# Schema tests for data quality validation
+# This file defines automated tests for data quality and consistency
+
+version: 2
+
+models:
+  # Staging layer tests
+  - name: stg_events
+    description: "Cleaned and validated event data"
+    tests:
+      - dbt_utils.unique_combination_of_columns:
+          combination_of_columns:
+            - event_id
+            - event_timestamp
+      - dbt_utils.not_null_proportion:
+          column_name: event_id
+          at_least: 0.99
+      - dbt_utils.not_null_proportion:
+          column_name: user_id
+          at_least: 0.99
+      - dbt_utils.not_null_proportion:
+          column_name: event_type
+          at_least: 0.99
+      - dbt_utils.not_null_proportion:
+          column_name: event_timestamp
+          at_least: 0.99
+      - dbt_utils.accepted_values:
+          column_name: event_type
+          values: ['purchase', 'page_view', 'signup', 'login', 'logout', 'click', 'scroll', 'search', 'filter', 'sort', 'error', 'exception', 'crash', 'session_start', 'session_end']
+      - dbt_utils.accepted_values:
+          column_name: platform
+          values: ['web', 'mobile', 'desktop', 'tablet']
+      - dbt_utils.accepted_values:
+          column_name: device_type
+          values: ['desktop', 'mobile', 'tablet', 'other']
+      - dbt_utils.expression_is_true:
+          expression: "amount IS NULL OR amount >= 0"
+      - dbt_utils.expression_is_true:
+          expression: "event_timestamp <= CURRENT_TIMESTAMP()"
+      - dbt_utils.expression_is_true:
+          column_name: is_valid
+          expression: "is_valid IN (TRUE, FALSE)"
+
+  - name: stg_users
+    description: "Cleaned and validated user data"
+    tests:
+      - dbt_utils.unique_combination_of_columns:
+          combination_of_columns:
+            - user_id
+      - dbt_utils.not_null_proportion:
+          column_name: user_id
+          at_least: 0.99
+      - dbt_utils.not_null_proportion:
+          column_name: email
+          at_least: 0.99
+      - dbt_utils.not_null_proportion:
+          column_name: created_at
+          at_least: 0.99
+      - dbt_utils.accepted_values:
+          column_name: subscription_tier_standardized
+          values: ['basic', 'premium', 'enterprise']
+      - dbt_utils.expression_is_true:
+          expression: "created_at <= CURRENT_TIMESTAMP()"
+      - dbt_utils.expression_is_true:
+          expression: "updated_at IS NULL OR updated_at >= created_at"
+      - dbt_utils.expression_is_true:
+          expression: "days_since_registration >= 0"
+      - dbt_utils.expression_is_true:
+          column_name: is_valid
+          expression: "is_valid IN (TRUE, FALSE)"
+
+  # Curated layer tests
+  - name: user_metrics
+    description: "Daily user-level metrics and aggregations"
+    tests:
+      - dbt_utils.unique_combination_of_columns:
+          combination_of_columns:
+            - user_id
+            - date
+      - dbt_utils.not_null_proportion:
+          column_name: user_id
+          at_least: 0.99
+      - dbt_utils.not_null_proportion:
+          column_name: date
+          at_least: 0.99
+      - dbt_utils.expression_is_true:
+          expression: "total_events >= 0"
+      - dbt_utils.expression_is_true:
+          expression: "total_purchases >= 0"
+      - dbt_utils.expression_is_true:
+          expression: "total_revenue >= 0"
+      - dbt_utils.expression_is_true:
+          expression: "unique_event_types >= 0"
+      - dbt_utils.expression_is_true:
+          expression: "total_sessions >= 0"
+      - dbt_utils.expression_is_true:
+          expression: "avg_purchase_amount IS NULL OR avg_purchase_amount >= 0"
+      - dbt_utils.expression_is_true:
+          expression: "is_active_today IN (TRUE, FALSE)"
+      - dbt_utils.expression_is_true:
+          expression: "made_purchase_today IN (TRUE, FALSE)"
+
+  - name: event_metrics
+    description: "Daily event type metrics and aggregations"
+    tests:
+      - dbt_utils.unique_combination_of_columns:
+          combination_of_columns:
+            - event_type
+            - date
+      - dbt_utils.not_null_proportion:
+          column_name: event_type
+          at_least: 0.99
+      - dbt_utils.not_null_proportion:
+          column_name: date
+          at_least: 0.99
+      - dbt_utils.expression_is_true:
+          expression: "total_events >= 0"
+      - dbt_utils.expression_is_true:
+          expression: "unique_users >= 0"
+      - dbt_utils.expression_is_true:
+          expression: "unique_sessions >= 0"
+      - dbt_utils.expression_is_true:
+          expression: "total_revenue >= 0"
+      - dbt_utils.expression_is_true:
+          expression: "web_events >= 0"
+      - dbt_utils.expression_is_true:
+          expression: "mobile_events >= 0"
+      - dbt_utils.expression_is_true:
+          expression: "avg_events_per_user >= 0"
+      - dbt_utils.expression_is_true:
+          expression: "avg_events_per_session >= 0"
+
+  - name: ml_features
+    description: "ML-ready features for user behavior analysis"
+    tests:
+      - dbt_utils.unique_combination_of_columns:
+          combination_of_columns:
+            - user_id
+            - feature_date
+      - dbt_utils.not_null_proportion:
+          column_name: user_id
+          at_least: 0.99
+      - dbt_utils.not_null_proportion:
+          column_name: feature_date
+          at_least: 0.99
+      - dbt_utils.expression_is_true:
+          expression: "events_last_7_days >= 0"
+      - dbt_utils.expression_is_true:
+          expression: "events_last_30_days >= 0"
+      - dbt_utils.expression_is_true:
+          expression: "purchases_last_7_days >= 0"
+      - dbt_utils.expression_is_true:
+          expression: "purchases_last_30_days >= 0"
+      - dbt_utils.expression_is_true:
+          expression: "revenue_last_7_days >= 0"
+      - dbt_utils.expression_is_true:
+          expression: "revenue_last_30_days >= 0"
+      - dbt_utils.expression_is_true:
+          expression: "engagement_score_7d >= 0 AND engagement_score_7d <= 100"
+      - dbt_utils.expression_is_true:
+          expression: "engagement_score_30d >= 0 AND engagement_score_30d <= 100"
+      - dbt_utils.expression_is_true:
+          expression: "platform_diversity_score >= 0 AND platform_diversity_score <= 1"
+      - dbt_utils.expression_is_true:
+          expression: "is_active_7d IN (TRUE, FALSE)"
+      - dbt_utils.expression_is_true:
+          expression: "is_active_30d IN (TRUE, FALSE)"
+      - dbt_utils.expression_is_true:
+          expression: "purchased_7d IN (TRUE, FALSE)"
+      - dbt_utils.expression_is_true:
+          expression: "purchased_30d IN (TRUE, FALSE)"
+
+  # Mart layer tests
+  - name: user_analytics
+    description: "Comprehensive user analytics for dashboards and reporting"
+    tests:
+      - dbt_utils.unique_combination_of_columns:
+          combination_of_columns:
+            - user_id
+            - date
+      - dbt_utils.not_null_proportion:
+          column_name: user_id
+          at_least: 0.99
+      - dbt_utils.not_null_proportion:
+          column_name: date
+          at_least: 0.99
+      - dbt_utils.expression_is_true:
+          expression: "total_events >= 0"
+      - dbt_utils.expression_is_true:
+          expression: "lifetime_events >= 0"
+      - dbt_utils.expression_is_true:
+          expression: "lifetime_purchases >= 0"
+      - dbt_utils.expression_is_true:
+          expression: "lifetime_revenue >= 0"
+      - dbt_utils.expression_is_true:
+          expression: "engagement_score_7d >= 0 AND engagement_score_7d <= 100"
+      - dbt_utils.expression_is_true:
+          expression: "engagement_score_30d >= 0 AND engagement_score_30d <= 100"
+      - dbt_utils.expression_is_true:
+          expression: "is_active_today IN (TRUE, FALSE)"
+      - dbt_utils.expression_is_true:
+          expression: "is_active_this_week IN (TRUE, FALSE)"
+      - dbt_utils.expression_is_true:
+          expression: "is_active_this_month IN (TRUE, FALSE)"
+
+  - name: business_metrics
+    description: "Daily business KPIs and metrics"
+    tests:
+      - dbt_utils.unique_combination_of_columns:
+          combination_of_columns:
+            - date
+      - dbt_utils.not_null_proportion:
+          column_name: date
+          at_least: 0.99
+      - dbt_utils.expression_is_true:
+          expression: "daily_active_users >= 0"
+      - dbt_utils.expression_is_true:
+          expression: "new_users >= 0"
+      - dbt_utils.expression_is_true:
+          expression: "daily_revenue >= 0"
+      - dbt_utils.expression_is_true:
+          expression: "daily_purchases >= 0"
+      - dbt_utils.expression_is_true:
+          expression: "total_events >= 0"
+      - dbt_utils.expression_is_true:
+          expression: "avg_events_per_user >= 0"
+      - dbt_utils.expression_is_true:
+          expression: "premium_users >= 0"
+      - dbt_utils.expression_is_true:
+          expression: "basic_users >= 0"
+      - dbt_utils.expression_is_true:
+          expression: "pct_premium_users >= 0 AND pct_premium_users <= 100"
+      - dbt_utils.expression_is_true:
+          expression: "pct_basic_users >= 0 AND pct_basic_users <= 100"
+      - dbt_utils.expression_is_true:
+          expression: "purchase_conversion_rate >= 0 AND purchase_conversion_rate <= 100"
+      - dbt_utils.expression_is_true:
+          expression: "revenue_per_user >= 0"
+
+
